@@ -35,6 +35,11 @@ from ._src import (
 # used for creating copies of objects
 from copy import deepcopy
 
+# used for type hinting
+from typing import (
+    cast,
+)
+
 
 # =============================================================================
 # Cube Models
@@ -85,9 +90,9 @@ class Cube(OBJ):
         # initializing attributes
         self.coord_vals: list[float] = []
         self.edge_val: float = 0
+        self.size: int = size
         self.odd: bool = self.size % 2 == 1
         self.pcs: list[Cube_Piece] = []
-        self.size: int = size
 
         # setting cube limits + coordinate values
         if not self.odd:
@@ -154,49 +159,61 @@ class Cube(OBJ):
     @property
     def layout(self) -> str:
         ''' Cube Prettified Layout. '''
-        return ''
+        output: str = 'Cube Layout:\n'
+        for face_name, face_str in [
+                ('Back', self.layout_back,),
+                ('Down', self.layout_down,),
+                ('Front', self.layout_front,),
+                ('Left', self.layout_left,),
+                ('Right', self.layout_right,),
+                ('Top', self.layout_top,),
+        ]:
+            output += f'\t{face_name} Face:\n'
+            for line in face_str.split('\n'):
+                output += f'\t\t{line}\n'
+        return output
     
     # ==================================
     # Cube Prettified Layout - Back Face
     @property
     def layout_back(self) -> str:
         ''' Cube Prettified Layout - Back Face. '''
-        return ''
+        return self.stringify_face(self._get_layout('B', True))
     
     # ==================================
     # Cube Prettified Layout - Down Face
     @property
     def layout_down(self) -> str:
         ''' Cube Prettified Layout - Down Face. '''
-        return ''
+        return self.stringify_face(self._get_layout('D', True))
     
     # ===================================
     # Cube Prettified Layout - Front Face
     @property
     def layout_front(self) -> str:
         ''' Cube Prettified Layout - Front Face. '''
-        return ''
+        return self.stringify_face(self._get_layout('F', True))
     
     # ==================================
     # Cube Prettified Layout - Left Face
     @property
     def layout_left(self) -> str:
         ''' Cube Prettified Layout - Left Face. '''
-        return ''
+        return self.stringify_face(self._get_layout('L', True))
     
     # ===================================
     # Cube Prettified Layout - Right Face
     @property
     def layout_right(self) -> str:
         ''' Cube Prettified Layout - Right Face. '''
-        return ''
+        return self.stringify_face(self._get_layout('R', True))
     
     # =================================
     # Cube Prettified Layout - Top Face
     @property
     def layout_top(self) -> str:
         ''' Cube Prettified Layout - Top Face. '''
-        return ''
+        return self.stringify_face(self._get_layout('T', True))
 
     # =============
     # OBJ: Get Data
@@ -219,7 +236,8 @@ class Cube(OBJ):
     # Get Layer Layout
     def _get_layout(
             self,
-            layer: str
+            layer: str,
+            face_only: bool = False
     ) -> list[list[str]]:
         '''
         Get Face Layout
@@ -241,6 +259,11 @@ class Cube(OBJ):
                 - `"L"` - Left Layer.
                 - `"R"` - Right Layer.
                 - `"T"` - Top Layer.
+        - face_only : `bool`
+            - Defaults to `False`, which results in an output 2D array as
+                described above. If `True`, the output 2D array will only
+                contain the data pertaining to the face of the cube, no extra
+                data.
 
         Returns
         -
@@ -248,7 +271,234 @@ class Cube(OBJ):
             - 2D list of all the colour values on the given layer.
         '''
 
+        # validate layer
+        if not layer in ['B', 'D', 'F', 'L', 'R', 'T']:
+            raise ValueError(
+                'Cube._get_layout(): layer must be one of "B", "D", "F", ' \
+                + f'"L", "R", "T", got {layer}.'
+            )
+        
+        # setting up face parameters
+        (
+            col_axis,
+            col_polarity,
+            axis_x,
+            axis_y,
+            x_polarity,
+            y_polarity,
+        ) = {
+            'R': (0, 0, 2, 1, -1, -1),
+            'T': (1, 0, 0, 2, 1, 1),
+            'F': (2, 0, 0, 1, 1, -1),
+            'L': (0, 1, 2, 1, 1, -1),
+            'B': (2, 1, 0, 1, -1, -1),
+            'D': (1, 1, 0, 2, 1, -1),
+        }[layer]
+
+        # initialize face data
+        face: list[list[str]] = [
+            [
+                '' 
+                for _ in range(self.size)
+            ]
+            for _ in range(self.size)
+        ]
+        for pce in self.pcs:
+            if pce.colours[col_axis][col_polarity] is None: continue
+            face[
+                self.coord_vals.index(
+                    pce.pos[axis_y]*y_polarity
+                )
+            ][
+                self.coord_vals.index(
+                    pce.pos[axis_x]*x_polarity
+                )
+            ] = cast(tuple[int, str], pce.colours[col_axis][col_polarity])[1]
+
+        if face_only: return face
+
         return []
+
+    # ===============
+    # Rotate Layer(s)
+    def rotate(
+            self,
+            direction: str
+    ) -> None:
+        '''
+        Rotate Layer(s)
+        -
+        Rotates cube layer(s) by the given `direction`.
+
+        Parameters
+        -
+        - direction : `str`
+            - Direction to rotate the cube layer(s) in.
+            - Valid Options:
+                - {"B", "D", "F", "L", "R", "T"} : Clockwise rotation of the
+                    given layer.
+                - {"B'", "D'", "F'", "L'", "R'", "T'"} : Counterclockwise
+                    rotation of the given layer.
+                - {"B2", "D2", "F2", "L2", "R2", "T2"} : 180 degrees rotation
+                    of the given layer.
+                - {"b", "d", "f", "l", "r", "t"} : Clockwise rotating of the
+                    given layer (2nd layer from the outside).
+                - {"bb", "dd", "ff", "ll", "rr", "tt"} : Clockwise rotation
+                    of the given layer (3rd layer from the outside).
+                - {"bw", "dw", "fw", "lw", "rw", "tw"} : Clockwise rotation
+                    of all layers between the outer and inner layer (indicated
+                    by the number of letters prefixing the `"w"`).
+                - {"x", "y", "z"} : Clockwise rotation of the entire cube
+                    around the given axis.
+        '''
+
+        # validate direction
+        valid_directions: list[str]
+        _directions_inner: list[str] = [
+            _str
+            for _str_l in [
+                [
+                    _s*(i+1)
+                    for i in range((self.size-2)//2)
+                ]
+                for _s in ['b', 'd', 'f', 'l', 'r', 't']
+            ]
+            for _str in _str_l
+        ]
+        _directions_outer: list[str] = ['B', 'D', 'F', 'L', 'R', 'T']
+        _directions_rotate: list[str] = ['x', 'y', 'z']
+        valid_directions = (
+            [
+                _str
+                for _str_l in [
+                    [
+                        f'{_s}{suffix}'
+                        for suffix in ['', '\'', '2']
+                    ]
+                    for _s in (
+                        _directions_outer \
+                        + _directions_inner \
+                        + _directions_rotate
+                    )
+                ]
+                for _str in _str_l
+            ] + [
+                f'{_s}w'
+                for _s in _directions_inner
+            ]
+        )
+        if direction not in valid_directions:
+            raise ValueError(
+                f'Cube.rotate(): direction must be one of {valid_directions}, '
+                + f'got {direction}.'
+            )
+        
+        # calculate axis to rotate
+        axis, axis_str = {
+            (True, False, False): (0, 'x',),
+            (False, True, False): (1, 'y',),
+            (False, False, True): (2, 'z',),
+        }[(
+            direction[0] in ['x', 'l', 'L', 'r', 'R'],
+            direction[1] in ['y', 'd', 'D', 't', 'T'],
+            direction[2] in ['z', 'b', 'B', 'f', 'F'],
+        )]
+        axis_negative: bool = direction[0] in ['f', 'F', 'r', 'R', 't', 'T']
+
+        # calculate number of rotations for each piece
+        num_rotations: int = {
+            (True, False, False): 3,
+            (True, True, False): 2,
+            (True, False, True): 1,
+            (False, False, False): 1,
+            (False, True, False): 2,
+            (False, False, True): 3,
+        }[(
+            axis_negative, 
+            direction[-1] == '2',
+            direction[-1] == '\''
+        )]
+
+        # calculate cube coordinates to rotate - layer number in the axis
+        #  calculated above
+        layer_vals: list[float] = []
+        for i, val in enumerate(self.coord_vals):
+            if direction[0] in ['x', 'y', 'z']: 
+                layer_vals.append(val)
+                continue
+
+            if val == -1*self.edge_val:
+                if (
+                        (direction[0] in ['B', 'D', 'L'])
+                        or (
+                            (direction[0] in ['b', 'd', 'l'])
+                            and ('w' in direction)
+                        )
+                ):
+                    layer_vals.append(val)
+                    continue
+            if val == self.edge_val:
+                if (
+                        (direction[0] in ['F', 'R', 'T'])
+                        or (
+                            (direction[0] in ['f', 'r', 't'])
+                            and ('w' in direction)
+                        )
+                ):
+                    layer_vals.append(val)
+                    continue
+
+            # for mid_section in range(1, self.size//2):
+            if direction[0] in ['b', 'd', 'f', 'l', 'r', 't']:
+                if direction[0] in ['l', 'f', 't']:
+                    if (
+                            ((self.size-1-i) == direction.count(direction[0]))
+                            or (
+                                (self.size-1-i) < direction.count(direction[0])
+                                and ('w' in direction)
+                            )
+                    ):
+                        layer_vals.append(val)
+                elif direction[0] in ['r', 'b', 'd']:
+                    if (
+                            (i == direction.count(direction[0]))
+                            or (
+                                (i < direction.count(direction[0]))
+                                and ('w' in direction)
+                            )
+                    ):
+                        layer_vals.append(val)
+
+        # rotate pieces
+        for pce in self.pcs:
+            if pce.pos[axis] in layer_vals:
+                for _ in range(num_rotations):
+                    pce.rotate(axis_str)
+
+    # =======================
+    # Stringify 2D Face Array
+    def stringify_face(self, face: list[list[str]]) -> str:
+        '''
+        Stringify 2D Face Array
+        -
+        Takes a 2D list of colour values and returns a string representation.
+
+        Parameters
+        -
+        - face : `list[list[str]]`
+            - 2D list of colour values on the given layer.
+
+        Returns
+        -
+        - `str`
+            - A string representation of the 2D face array.
+        '''
+
+        output: str = '+' + ('-'*((self.size*3)+(self.size-1))) + '+\n'
+        for row in face:
+            output += '|' + ' '.join([f'"{col}"' for col in row]) + '|\n'
+        output += '+' + ('-'*((self.size*3)+(self.size-1))) + '+'
+        return output
 
 
 # ==========
