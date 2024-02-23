@@ -323,7 +323,8 @@ class Cube(OBJ):
     # Rotate Layer(s)
     def rotate(
             self,
-            direction: str
+            direction: str,
+            add_printing: bool = False
     ) -> None:
         '''
         Rotate Layer(s)
@@ -350,6 +351,8 @@ class Cube(OBJ):
                     by the number of letters prefixing the `"w"`).
                 - {"x", "y", "z"} : Clockwise rotation of the entire cube
                     around the given axis.
+        - add_printing : `bool`
+            - Whether or not to add a printout of the rotation.
         '''
 
         # validate direction
@@ -400,8 +403,8 @@ class Cube(OBJ):
             (False, False, True): (2, 'z',),
         }[(
             direction[0] in ['x', 'l', 'L', 'r', 'R'],
-            direction[1] in ['y', 'd', 'D', 't', 'T'],
-            direction[2] in ['z', 'b', 'B', 'f', 'F'],
+            direction[0] in ['y', 'd', 'D', 't', 'T'],
+            direction[0] in ['z', 'b', 'B', 'f', 'F'],
         )]
         axis_negative: bool = direction[0] in ['f', 'F', 'r', 'R', 't', 'T']
 
@@ -469,11 +472,19 @@ class Cube(OBJ):
                     ):
                         layer_vals.append(val)
 
+        if add_printing:
+            print(
+                f'Direction: {direction}\n' \
+                + f'| - axis: {axis}, axis_str: {axis_str}\n' \
+                + f'| - num_rotations: {num_rotations}\n' \
+                + f'| - layer_vals: {layer_vals}\n'
+            )
+
         # rotate pieces
         for pce in self.pcs:
             if pce.pos[axis] in layer_vals:
                 for _ in range(num_rotations):
-                    pce.rotate(axis_str)
+                    pce.rotate(axis_str, add_printing)
 
     # =======================
     # Stringify 2D Face Array
@@ -575,7 +586,7 @@ class Cube_Piece(OBJ):
     def colours(self, data: _COLOUR_PIECE_CUBE) -> None:
         (
             (self._col_xp, self._col_xn,),
-            (self._col_yn, self._col_yn,),
+            (self._col_yp, self._col_yn,),
             (self._col_zp, self._col_zn,),
         ) = data
 
@@ -614,7 +625,8 @@ class Cube_Piece(OBJ):
     # Rotate
     def rotate(
             self,
-            axis: str
+            axis: str,
+            add_printing: bool = False
     ) -> None:
         '''
         Rotate
@@ -629,6 +641,8 @@ class Cube_Piece(OBJ):
                 - `"x"` : X-Axis Rotation.
                 - `"y"` : Y-Axis Rotation.
                 - `"z"` : Z-Axis Rotation.
+        - add_printing : `bool`
+            - Whether or not to print the current rotation.
 
         Returns
         -
@@ -640,6 +654,14 @@ class Cube_Piece(OBJ):
             raise ValueError(
                 'Cube_Piece.rotate(): axis must be in ["x", "y", "z"], got' \
                 + f'{axis}'
+            )
+        
+        if add_printing:
+            print(
+                f'Moving Cube Piece:\n' \
+                + f'| - Original Values:\n' \
+                + f'\t| - Position: {self.pos}\n' \
+                + f'\t| - Colours: {self.colours_str}'
             )
         
         # rotate position
@@ -673,6 +695,13 @@ class Cube_Piece(OBJ):
                 self.colours[2],
             )
         }[axis]
+
+        if add_printing:
+            print(
+                f'| - New Values:\n' \
+                + f'\t| - Position: {self.pos}\n' \
+                + f'\t| - Colours: {self.colours_str}\n'
+            )
 
 
 '''
