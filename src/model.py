@@ -213,7 +213,7 @@ class Cube(OBJ):
     @property
     def layout_top(self) -> str:
         ''' Cube Prettified Layout - Top Face. '''
-        return self.stringify_face(self._get_layout('T', True))
+        return self.stringify_face(self._get_layout('U', True))
 
     # =============
     # OBJ: Get Data
@@ -231,6 +231,77 @@ class Cube(OBJ):
             'pcs': self.pcs,
             'size': self.size,
         }
+    
+    # ====================
+    # Get Center Positions
+    def _get_centers(self) -> dict[str, str]:
+        '''
+        Get Center Positions
+        -
+        Gets positions of the 6 central colours of the cube. If being run on
+        a `Cube` with an even size, the `Cube` centers must first have been
+        solved, otherwise will raise a `RuntimeError`.
+        
+        If run on a 2x2x2 `Cube`, will raise a `RuntimeError` because 2x2x2
+        `Cube` objects have no central pieces.
+
+        Parameters
+        -
+        None
+
+        Returns
+        -
+        - `dict[str, str]`
+            - Keys are `str`, each indicating a particular `COLOURS.CUBE`
+                character colour value.
+            - Values are `str`, each indicating the face the piece is on.
+        '''
+
+        # only run if size > 2
+        if self.size <= 2:
+            raise RuntimeError(
+                f'Cube._get_centers() requires self.size > 2, got {self.size}'
+            )
+
+        # initialize central positions
+        edge_val: float = {
+            True: self.edge_val,
+            False: self.edge_val + 0.5,
+        }[self.odd]
+        central_coordinates: dict[_POS, str] = {
+            (edge_val, 0, 0,): 'R', # Positive X - Right
+            (-1*edge_val, 0, 0,): 'L', # Negative X - Left
+            (0, edge_val, 0,): 'U', # Positive Y - Up
+            (0, -1*edge_val, 0,): 'D', # Negative Y - Down
+            (0, 0, edge_val,): 'F', # Positive Z - Front
+            (0, 0, -1*edge_val,): 'B', # Negative Z - Back
+        }
+
+        # create dict
+        output: dict[str, str] = {
+            pce.colours_str_min: central_coordinates[pce.pos]
+            for pce in self.pcs
+            if (
+                (len(pce.colours_str_min) == 1)
+                and (pce.pos in central_coordinates)
+            )
+        }
+
+        # validate values
+        for _, face in central_coordinates.items():
+            if face not in [_f for _, _f in output.items()]:
+                raise RuntimeError(
+                    f"Cube._get_centers() failed for face {face}"
+                )
+        if len(output) != 6:
+            raise RuntimeError(
+                "Cube._get_centers() failed, required to calculate 6 faces, " \
+                + f"got {len(output)}"
+            )
+        
+        # TODO: Check rest of cube center in even solves
+
+        return output
     
     # ================
     # Get Layer Layout
@@ -272,7 +343,7 @@ class Cube(OBJ):
         '''
 
         # validate layer
-        if not layer in ['B', 'D', 'F', 'L', 'R', 'T']:
+        if not layer in ['B', 'D', 'F', 'L', 'R', 'U']:
             raise ValueError(
                 'Cube._get_layout(): layer must be one of "B", "D", "F", ' \
                 + f'"L", "R", "T", got {layer}.'
@@ -288,7 +359,7 @@ class Cube(OBJ):
             y_polarity,
         ) = {
             'R': (0, 0, 2, 1, -1, -1),
-            'T': (1, 0, 0, 2, 1, 1),
+            'U': (1, 0, 0, 2, 1, 1),
             'F': (2, 0, 0, 1, 1, -1),
             'L': (0, 1, 2, 1, 1, -1),
             'B': (2, 1, 0, 1, -1, -1),
@@ -318,6 +389,36 @@ class Cube(OBJ):
         if face_only: return face
 
         return []
+
+    # ========================
+    # Solve Cube - White Cross
+    def _solve_white_cross(self) -> list[str]:
+        '''
+        Solve Cube - White Cross
+        -
+        Solves the white cross component of the current `Cube` object. Returns
+        a list of strings containing the formulae used to solve the white cross
+        of the cube.
+
+        Parameters
+        -
+        None
+
+        Returns
+        -
+        - `list[str]`
+            - List of formulae used to solve the white cross.
+        '''
+
+        # initialize variables
+        formulae: list[str] = []
+        pce: Cube_Piece
+        orientation: dict[str, str] = self._get_centers()
+        
+        # move white to bottom
+        
+
+        return formulae
 
     # ===============
     # Rotate Layer(s)
@@ -364,11 +465,11 @@ class Cube(OBJ):
                     _s*(i+1)
                     for i in range((self.size-2)//2)
                 ]
-                for _s in ['b', 'd', 'f', 'l', 'r', 't']
+                for _s in ['b', 'd', 'f', 'l', 'r', 'u']
             ]
             for _str in _str_l
         ]
-        _directions_outer: list[str] = ['B', 'D', 'F', 'L', 'R', 'T']
+        _directions_outer: list[str] = ['B', 'D', 'F', 'L', 'R', 'U']
         _directions_rotate: list[str] = ['x', 'y', 'z']
         valid_directions = (
             [
@@ -403,10 +504,10 @@ class Cube(OBJ):
             (False, False, True): (2, 'z',),
         }[(
             direction[0] in ['x', 'l', 'L', 'r', 'R'],
-            direction[0] in ['y', 'd', 'D', 't', 'T'],
+            direction[0] in ['y', 'd', 'D', 'u', 'U'],
             direction[0] in ['z', 'b', 'B', 'f', 'F'],
         )]
-        axis_negative: bool = direction[0] in ['f', 'F', 'r', 'R', 't', 'T']
+        axis_negative: bool = direction[0] in ['f', 'F', 'r', 'R', 'u', 'U']
 
         # calculate number of rotations for each piece
         num_rotations: int = {
@@ -442,9 +543,9 @@ class Cube(OBJ):
                     continue
             if val == self.edge_val:
                 if (
-                        (direction[0] in ['F', 'R', 'T'])
+                        (direction[0] in ['F', 'R', 'U'])
                         or (
-                            (direction[0] in ['f', 'r', 't'])
+                            (direction[0] in ['f', 'r', 'u'])
                             and ('w' in direction)
                         )
                 ):
@@ -452,8 +553,8 @@ class Cube(OBJ):
                     continue
 
             # for mid_section in range(1, self.size//2):
-            if direction[0] in ['b', 'd', 'f', 'l', 'r', 't']:
-                if direction[0] in ['l', 'f', 't']:
+            if direction[0] in ['b', 'd', 'f', 'l', 'r', 'u']:
+                if direction[0] in ['l', 'f', 'u']:
                     if (
                             ((self.size-1-i) == direction.count(direction[0]))
                             or (
@@ -485,6 +586,27 @@ class Cube(OBJ):
             if pce.pos[axis] in layer_vals:
                 for _ in range(num_rotations):
                     pce.rotate(axis_str, add_printing)
+
+    # ==========
+    # Solve Cube
+    def solve(self) -> None:
+        '''
+        Solve Cube
+        -
+        Solves the current `Cube` object (after being scrambled), and prints
+        the solution for solving each part of the `Cube` step-by-step.
+
+        Parameters
+        -
+        None
+
+        Returns
+        -
+        None
+        '''
+
+        # solve the white cross
+        self._solve_white_cross()
 
     # =======================
     # Stringify 2D Face Array
@@ -605,6 +727,18 @@ class Cube_Piece(OBJ):
                 ('Top', self._col_yp),
                 ('Down', self._col_yn),
             ]
+        ])
+    
+    # =================================
+    # Piece Colours - Minimalist String
+    @property
+    def colours_str_min(self) -> str:
+        ''' Piece Colours - Minimalist String. '''
+        return ','.join([
+            col[1]
+            for col_axis in self.colours
+            for col in col_axis
+            if col is not None
         ])
     
     # =============
